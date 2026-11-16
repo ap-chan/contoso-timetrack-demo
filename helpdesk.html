@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="description" content="Fictional helpdesk demo site used to demonstrate computer-use agents. No real data.">
+<link rel="icon" href="data:,">
+<title>Contoso HelpDesk (demo)</title>
+<style>
+  :root { --teal:#0b5d6b; --blue:#0f6cbd; --grey:#f3f2f1; --line:#c8c6c4; --text:#201f1e; --muted:#605e5c; --ok:#107c10; --err:#a4262c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 "Segoe UI", Tahoma, Arial, sans-serif; color: var(--text); background: #fff; }
+  header { background: var(--teal); color: #fff; padding: 12px 24px; display: flex; align-items: baseline; gap: 10px; }
+  header .brand { font-size: 20px; font-weight: 600; }
+  header small { opacity: .85; font-size: 14px; }
+  main { max-width: 1100px; padding: 22px 28px 48px; min-height: calc(100vh - 98px); }
+  h1 { font-size: 24px; margin: 6px 0 6px; font-weight: 600; }
+  h2 { font-size: 18px; margin: 26px 0 8px; font-weight: 600; }
+  a { color: var(--blue); }
+  .muted { color: var(--muted); }
+  .nowrap { white-space: nowrap; }
+  .small { font-size: 13px; margin-top: 3px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+  th, td { border: 1px solid var(--line); padding: 9px 11px; text-align: left; vertical-align: top; }
+  th { background: var(--grey); }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 11px; font-size: 13px; font-weight: 600; }
+  .s-open { background: #e8f1fa; color: #0f4c81; }
+  .s-progress { background: #fff4ce; color: #7a5a00; }
+  .s-resolved { background: #dff6dd; color: #0b5d0b; }
+  .s-closed { background: #edebe9; color: #323130; }
+  .p-high { color: var(--err); font-weight: 600; }
+  .card { border: 1px solid var(--line); padding: 18px 22px 8px; margin-top: 12px; background: #fff; }
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+  label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  select, input[type=text], textarea { font: inherit; padding: 7px 9px; border: 1px solid #8a8886; border-radius: 2px; width: 100%; background: #fff; color: var(--text); }
+  textarea { resize: vertical; }
+  button { font: inherit; padding: 8px 18px; border: 1px solid var(--blue); background: var(--blue); color: #fff; border-radius: 2px; cursor: pointer; }
+  button.secondary { background: #fff; color: var(--blue); }
+  .banner { padding: 12px 16px; border-radius: 2px; margin: 12px 0; }
+  .banner.ok { background: #dff6dd; border: 1px solid var(--ok); }
+  .banner.info { background: #e8f1fa; border: 1px solid var(--blue); }
+  .err-text { color: var(--err); margin-top: 8px; min-height: 1.4em; }
+  ul.activity { list-style: none; padding: 0; margin: 0; border: 1px solid var(--line); }
+  ul.activity li { padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  ul.activity li:last-child { border-bottom: none; }
+  footer { border-top: 1px solid var(--line); padding: 12px 24px; font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<header><span class="brand">Contoso HelpDesk</span><small>demo</small></header>
+<main id="app"></main>
+<footer>
+  <span>Fictional demo site. No real people, tickets or data. Scenario: <span id="scenarioLabel"></span></span>
+  <a href="#" id="resetLink">Reset demo data</a>
+</footer>
+<noscript><p style="padding:20px">This demo site needs JavaScript.</p></noscript>
+
+<script>
+(function () {
+  'use strict';
+
+  var KEY = 'hd_demo_v1';
+  var STATUSES = ['Open', 'In progress', 'Resolved', 'Closed as duplicate'];
+  var PRIORITIES = ['Low', 'Medium', 'High'];
+  var params = new URLSearchParams(location.search);
+  var app = document.getElementById('app');
+  var state = load();
+
+  function mk(id, title, desc, status, priority, assignee, updated) {
+    return { id: id, title: title, description: desc, status: status, priority: priority, assignee: assignee, dupOf: '', updated: updated, activity: [{ at: updated, text: 'Ticket created.' }] };
+  }
+  function byId(list, id) { for (var i = 0; i < list.length; i++) { if (list[i].id === id) { return list[i]; } } return null; }
+  function people(scenario) {
+    var p = ['Unassigned', 'Dana Whitfield', 'Priya Nair', 'Marcus Lee'];
+    if (scenario === 'hard') { p.push('Marcus Ortiz'); }
+    return p;
+  }
+
+  function seed(scenario) {
+    var t = [
+      mk('INC-1038', 'VPN drops every 30 minutes for remote staff', 'Several remote staff report the VPN dropping about every half hour. Logs show the gateway renewing keys.', 'In progress', 'Medium', 'Dana Whitfield', '2026-11-12 09:14'),
+      mk('INC-1042', 'Remote users disconnected from VPN randomly', 'Two users in the branch office lose their VPN session several times a day.', 'Open', 'Medium', 'Unassigned', '2026-11-13 11:02'),
+      mk('INC-1045', 'Shared printer on floor 3 prints blank pages', 'The floor 3 printer prints blank pages after a toner change.', 'Open', 'Low', 'Unassigned', '2026-11-13 14:40'),
+      mk('INC-1047', 'Payroll portal returns timeout errors', 'Finance reports the payroll portal times out when exporting the monthly report.', 'Open', 'Medium', 'Unassigned', '2026-11-13 16:25'),
+      mk('INC-1050', 'Guest Wi-Fi blocked by firewall rule', 'Visitors cannot reach the guest Wi-Fi sign-in page. A firewall rule is blocking it.', 'In progress', 'Medium', 'Dana Whitfield', '2026-11-14 10:05'),
+      mk('INC-1053', 'Vendor license renewal not applied to design tool', 'The renewed license key has not been applied to the design tool. Waiting for the vendor.', 'In progress', 'Low', 'Unassigned', '2026-11-14 15:30'),
+      mk('INC-1055', 'Conference room display flickers', 'The display in conference room 2 flickers when a laptop connects.', 'Open', 'Low', 'Unassigned', '2026-11-15 08:50'),
+      mk('INC-1056', 'New hire laptop needs encryption check', 'A new hire laptop needs a disk encryption check before handover.', 'Open', 'Medium', 'Priya Nair', '2026-11-15 13:10')
+    ];
+    if (scenario === 'hard') {
+      // 1050 is already resolved, so the notes ask for something that is already done.
+      var x = byId(t, 'INC-1050');
+      x.status = 'Resolved';
+      x.updated = '2026-11-15 17:20';
+      x.activity.unshift({ at: '2026-11-15 17:20', text: 'Status changed from In progress to Resolved. Comment: Firewall rule updated.' });
+    }
+    return t;
+  }
+
+  function load() {
+    if (params.get('reset') === '1') {
+      try { localStorage.removeItem(KEY); } catch (e) { /* storage unavailable */ }
+      params.delete('reset');
+      var q = params.toString();
+      history.replaceState(null, '', location.pathname + (q ? '?' + q : '') + location.hash);
+    }
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem(KEY)); } catch (e) { s = null; }
+    var scenario = params.get('scenario') || (s && s.scenario) || 'standard';
+    if (!s || s.scenario !== scenario) { s = { scenario: scenario, tickets: seed(scenario), banner: null }; }
+    s.banner = null;
+    return s;
+  }
+  function persist() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ } }
+
+  function esc(v) { return String(v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function val(id) { return document.getElementById(id).value; }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function now() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function opts(list, current) { return list.map(function (x) { return '<option' + (x === current ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join(''); }
+  function badge(t) {
+    var cls = t.status === 'Open' ? 's-open' : t.status === 'In progress' ? 's-progress' : t.status === 'Resolved' ? 's-resolved' : 's-closed';
+    return '<span class="badge ' + cls + '">' + esc(t.status) + '</span>' + (t.dupOf ? '<div class="muted small">Duplicate of ' + esc(t.dupOf) + '</div>' : '');
+  }
+  function bannerHtml() { return state.banner ? '<div class="banner ' + state.banner.type + '" role="status" id="banner">' + esc(state.banner.text) + '</div>' : ''; }
+  function setBanner(type, text) { state.banner = { type: type, text: text }; persist(); render(); }
+
+  function route() { return (location.hash || '#/').replace(/^#/, ''); }
+  function render() {
+    document.getElementById('scenarioLabel').textContent = state.scenario;
+    var m = /^\/ticket\/(INC-\d{4})$/.exec(route());
+    if (m) { renderTicket(m[1]); } else { renderList(); }
+  }
+
+  function renderList() {
+    var c = { 'Open': 0, 'In progress': 0, 'Resolved': 0, 'Closed as duplicate': 0 };
+    state.tickets.forEach(function (t) { c[t.status]++; });
+    var rows = state.tickets.map(function (t) {
+      return '<tr><td class="nowrap"><a href="#/ticket/' + t.id + '">' + t.id + '</a></td><td>' + esc(t.title) + '</td><td>' + badge(t) +
+        '</td><td class="' + (t.priority === 'High' ? 'p-high' : '') + '">' + esc(t.priority) + '</td><td>' + esc(t.assignee) + '</td><td class="nowrap">' + esc(t.updated) + '</td></tr>';
+    }).join('');
+    app.innerHTML =
+      '<h1>All tickets</h1>' + bannerHtml() +
+      '<p class="muted" id="summary">' + state.tickets.length + ' tickets &middot; Open ' + c['Open'] + ' &middot; In progress ' + c['In progress'] + ' &middot; Resolved ' + c['Resolved'] + ' &middot; Closed as duplicate ' + c['Closed as duplicate'] + '</p>' +
+      '<table id="tickets"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Priority</th><th>Assignee</th><th>Last updated</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  function renderTicket(id) {
+    var t = byId(state.tickets, id);
+    if (!t) { app.innerHTML = '<p>Ticket not found. <a href="#/">Back to all tickets</a></p>'; return; }
+    var acts = t.activity.map(function (a) { return '<li><span class="muted">' + esc(a.at) + '</span> &nbsp;' + esc(a.text) + '</li>'; }).join('');
+    app.innerHTML =
+      '<p><a href="#/">&larr; All tickets</a></p>' +
+      '<h1>' + esc(t.id) + ': ' + esc(t.title) + '</h1>' + bannerHtml() +
+      '<div class="card"><p>' + esc(t.description) + '</p>' +
+      '<div class="grid">' +
+      '<div><label for="fStatus">Status</label><select id="fStatus">' + opts(STATUSES, t.status) + '</select></div>' +
+      '<div><label for="fPriority">Priority</label><select id="fPriority">' + opts(PRIORITIES, t.priority) + '</select></div>' +
+      '<div><label for="fAssignee">Assignee</label><select id="fAssignee">' + opts(people(state.scenario), t.assignee) + '</select></div></div>' +
+      '<div id="dupWrap" style="display:' + (t.status === 'Closed as duplicate' ? 'block' : 'none') + '"><label for="fDup">Duplicate of (ticket ID)</label>' +
+      '<input type="text" id="fDup" value="' + esc(t.dupOf) + '" placeholder="For example INC-1001" autocomplete="off" style="max-width:260px"></div>' +
+      '<label for="fComment">Add a comment</label><textarea id="fComment" rows="3" placeholder="Optional. Required when resolving a ticket."></textarea>' +
+      '<div class="err-text" id="formErr" role="alert"></div>' +
+      '<p><button id="save">Save changes</button> <button class="secondary" id="cancel">Cancel</button></p></div>' +
+      '<h2>Activity</h2><ul class="activity" id="activity">' + acts + '</ul>';
+    document.getElementById('fStatus').onchange = function () { document.getElementById('dupWrap').style.display = this.value === 'Closed as duplicate' ? 'block' : 'none'; };
+    document.getElementById('cancel').onclick = function () { location.hash = '#/'; };
+    document.getElementById('save').onclick = function () { saveTicket(t); };
+  }
+
+  function saveTicket(t) {
+    var status = val('fStatus'), priority = val('fPriority'), assignee = val('fAssignee'), comment = val('fComment').trim();
+    var dup = val('fDup').trim().toUpperCase();
+    var err = '';
+    if (status === 'Closed as duplicate' && (!/^INC-\d{4}$/.test(dup) || dup === t.id || !byId(state.tickets, dup))) {
+      err = 'Enter the ID of another existing ticket in "Duplicate of", such as INC-1038.';
+    } else if (status === 'Resolved' && t.status !== 'Resolved' && !comment) {
+      err = 'Add a resolution note in the comment box before resolving this ticket.';
+    }
+    if (err) { document.getElementById('formErr').textContent = err; return; }
+    var changes = [];
+    if (status !== t.status) { changes.push('Status changed from ' + t.status + ' to ' + status + (status === 'Closed as duplicate' ? ' of ' + dup : '') + '.'); }
+    if (priority !== t.priority) { changes.push('Priority changed from ' + t.priority + ' to ' + priority + '.'); }
+    if (assignee !== t.assignee) { changes.push('Assignee changed from ' + t.assignee + ' to ' + assignee + '.'); }
+    if (comment) { changes.push('Comment: ' + comment); }
+    if (!changes.length) { setBanner('info', 'No changes to save.'); return; }
+    t.status = status; t.priority = priority; t.assignee = assignee;
+    t.dupOf = status === 'Closed as duplicate' ? dup : '';
+    t.updated = now();
+    changes.forEach(function (c) { t.activity.unshift({ at: t.updated, text: c }); });
+    setBanner('ok', 'Ticket ' + t.id + ' saved.');
+  }
+
+  document.getElementById('resetLink').onclick = function (e) {
+    e.preventDefault();
+    try { localStorage.removeItem(KEY); } catch (err) { /* ignore */ }
+    location.hash = '#/';
+    location.reload();
+  };
+  window.addEventListener('hashchange', function () { state.banner = null; render(); });
+  render();
+})();
+</script>
+</body>
+</html>
