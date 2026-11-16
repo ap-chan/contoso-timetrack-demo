@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="description" content="Fictional demo timesheet site used to demonstrate computer-use agents. No real data.">
+<link rel="icon" href="data:,">
+<title>Contoso TimeTrack (demo)</title>
+<style>
+  :root { --navy:#0b3a6e; --blue:#0f6cbd; --grey:#f3f2f1; --line:#c8c6c4; --text:#201f1e; --muted:#605e5c; --ok:#107c10; --warn:#fff4ce; --err:#a4262c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 "Segoe UI", Tahoma, Arial, sans-serif; color: var(--text); background: #fff; }
+  header { background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; }
+  header .brand { font-size: 20px; font-weight: 600; }
+  header .brand small { font-weight: 400; opacity: .8; margin-left: 8px; font-size: 14px; }
+  header .user { font-size: 14px; }
+  header .user a { color: #fff; margin-left: 12px; }
+  .layout { display: flex; min-height: calc(100vh - 98px); }
+  nav { width: 210px; background: var(--grey); border-right: 1px solid var(--line); padding: 12px 0; flex: 0 0 210px; }
+  nav a { display: block; padding: 10px 20px; color: var(--text); text-decoration: none; }
+  nav a.active { background: #fff; border-left: 4px solid var(--blue); font-weight: 600; padding-left: 16px; }
+  nav a.disabled { color: #a19f9d; cursor: default; }
+  main { flex: 1; padding: 20px 28px 40px; max-width: 1120px; }
+  h1 { font-size: 24px; margin: 0 0 6px; font-weight: 600; }
+  h2 { font-size: 18px; margin: 18px 0 8px; font-weight: 600; }
+  a { color: var(--blue); }
+  .muted { color: var(--muted); }
+  .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--line); margin: 14px 0 16px; }
+  .tab { padding: 9px 20px; border: 1px solid var(--line); border-bottom: none; background: var(--grey); color: var(--text); cursor: pointer; font: inherit; border-radius: 0; }
+  .tab.active { background: #fff; font-weight: 600; border-top: 3px solid var(--blue); }
+  button { font: inherit; padding: 8px 18px; border: 1px solid var(--blue); background: var(--blue); color: #fff; border-radius: 2px; cursor: pointer; }
+  button.secondary { background: #fff; color: var(--blue); }
+  button.tab { background: var(--grey); color: var(--text); border: 1px solid var(--line); border-bottom: none; }
+  button.tab.active { background: #fff; }
+  button:disabled { background: #e1dfdd; border-color: #c8c6c4; color: #8a8886; cursor: not-allowed; }
+  input[type=text], input[type=password], select { font: inherit; padding: 7px 9px; border: 1px solid #8a8886; border-radius: 2px; width: 100%; background: #fff; color: var(--text); }
+  label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  label.inline { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; margin: 14px 0; }
+  label.inline input { margin-top: 4px; width: 18px; height: 18px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--grey); }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  tr.unsub td { background: var(--warn); }
+  .banner { padding: 12px 16px; border-radius: 2px; margin: 12px 0; }
+  .banner.ok { background: #dff6dd; border: 1px solid var(--ok); }
+  .banner.err { background: #fde7e9; border: 1px solid var(--err); }
+  .banner.info { background: #e8f1fa; border: 1px solid var(--blue); }
+  .row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+  .row .grow { margin-left: auto; }
+  .flyout { position: fixed; top: 0; right: 0; width: 400px; max-width: 100vw; height: 100%; background: #fff; border-left: 1px solid var(--line); box-shadow: -4px 0 12px rgba(0,0,0,.18); padding: 20px 22px; overflow: auto; z-index: 20; }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 30; display: flex; align-items: center; justify-content: center; }
+  .modal { background: #fff; width: 540px; max-width: 92vw; padding: 24px; border-radius: 2px; box-shadow: 0 8px 28px rgba(0,0,0,.3); }
+  .err-text { color: var(--err); margin-top: 8px; min-height: 1.4em; }
+  footer { border-top: 1px solid var(--line); padding: 12px 20px; font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Contoso TimeTrack<small>4.2 &middot; demo</small></div>
+  <div class="user" id="user"></div>
+</header>
+<div class="layout">
+  <nav id="nav" aria-label="Main navigation"></nav>
+  <main id="app"></main>
+</div>
+<footer>
+  <span>Fictional demo site. No real people, customers or data. Scenario: <span id="scenarioLabel"></span></span>
+  <a href="#" id="resetLink">Reset demo data</a>
+</footer>
+<noscript><p style="padding:20px">This demo site needs JavaScript.</p></noscript>
+
+<script>
+(function () {
+  'use strict';
+
+  var KEY = 'tt_demo_v2';
+  var PASSWORD = 'Demo!2026';
+  var DEFAULT_RANGE = { from: '2026-11-16', to: '2026-11-22' };
+  var PROJECTS = [
+    { code: 'CUST-1042', name: 'Fabrikam Migration', tasks: ['CSA - Role-Based', 'Architecture Review', 'Customer Workshop'] },
+    { code: 'PRG-2207', name: 'Azure Preview Program', tasks: ['Preview Feedback', 'Technical Enablement'] },
+    { code: 'OH-0001', name: 'Program Overhead', tasks: ['Team Meetings', 'Learning and Development'] },
+    { code: 'ADM-0003', name: 'Administration', tasks: ['Timekeeping', 'Expense Reporting'] }
+  ];
+  // In the "hard" scenario the system rejects this combination when a row is added.
+  var INACTIVE = { 'OH-0001|Learning and Development': true };
+
+  var params = new URLSearchParams(location.search);
+  var app = document.getElementById('app');
+  var state = load();
+
+  function seed(scenario) {
+    var list = [
+      { id: 1, date: '2026-11-09', code: 'OH-0001', task: 'Team Meetings', hours: 1, comment: 'Weekly team sync', status: 'Submitted' },
+      { id: 2, date: '2026-11-10', code: 'ADM-0003', task: 'Timekeeping', hours: 0.25, comment: 'Timesheet admin', status: 'Submitted' }
+    ];
+    if (scenario === 'hard') {
+      list.push({ id: 3, date: '2026-11-10', code: 'PRG-2207', task: 'Technical Enablement', hours: 3, comment: 'Preview customer enablement session', status: 'Submitted' });
+    }
+    return list;
+  }
+
+  function load() {
+    if (params.get('reset') === '1') {
+      try { localStorage.removeItem(KEY); } catch (e) { /* storage unavailable */ }
+      params.delete('reset');
+      var q = params.toString();
+      history.replaceState(null, '', location.pathname + (q ? '?' + q : '') + location.hash);
+    }
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem(KEY)); } catch (e) { s = null; }
+    var scenario = params.get('scenario') || (s && s.scenario) || 'standard';
+    if (!s || s.scenario !== scenario) {
+      s = { scenario: scenario, auth: false, entries: seed(scenario), nextId: 100, range: { from: DEFAULT_RANGE.from, to: DEFAULT_RANGE.to }, tab: 'availability', banner: null, newsDismissed: false };
+    }
+    if (params.get('auto') === '1') { s.auth = true; }
+    return s;
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ } }
+
+  function esc(v) { return String(v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function val(id) { return document.getElementById(id).value; }
+  function fmt(n) { return Number(n).toFixed(2); }
+  function validDate(s) { return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s + 'T00:00:00')); }
+  function findProject(code) { for (var i = 0; i < PROJECTS.length; i++) { if (PROJECTS[i].code === code) { return PROJECTS[i]; } } return null; }
+  function projLabel(code) { var p = findProject(code); return p ? p.code + ' \u00b7 ' + p.name : code; }
+  function unsubCount() { return state.entries.filter(function (e) { return e.status !== 'Submitted'; }).length; }
+
+  function route() { return (location.hash || '#/home').replace(/^#/, ''); }
+  function go(path) { if (location.hash === '#' + path) { render(); } else { location.hash = '#' + path; } }
+  function setBanner(type, text) { state.banner = { type: type, text: text }; save(); render(); }
+  function bannerHtml() { return state.banner ? '<div class="banner ' + state.banner.type + '" role="status" id="banner">' + esc(state.banner.text) + '</div>' : ''; }
+
+  function render() {
+    var r = route();
+    if (!state.auth && r !== '/login') { go('/login'); return; }
+    if (state.auth && r === '/login') { go('/home'); return; }
+    closeFlyout();
+    renderChrome(r);
+    if (r === '/login') { renderLogin(); }
+    else if (r === '/time') { renderTime(); }
+    else { renderHome(); }
+  }
+
+  function renderChrome(r) {
+    var navEl = document.getElementById('nav');
+    var userEl = document.getElementById('user');
+    document.getElementById('scenarioLabel').textContent = state.scenario;
+    if (!state.auth) { navEl.style.display = 'none'; navEl.innerHTML = ''; userEl.innerHTML = ''; return; }
+    navEl.style.display = '';
+    navEl.innerHTML =
+      '<a href="#/home" class="' + (r === '/home' ? 'active' : '') + '">Home</a>' +
+      '<a href="#/time" class="' + (r === '/time' ? 'active' : '') + '">Time &amp; Availability</a>' +
+      '<a class="disabled" aria-disabled="true">Expenses</a>' +
+      '<a class="disabled" aria-disabled="true">Reports</a>';
+    userEl.innerHTML = 'Signed in as demo.user@contoso.example <a href="#" id="signOut">Sign out</a>';
+    document.getElementById('signOut').onclick = function (e) { e.preventDefault(); state.auth = false; state.banner = null; save(); go('/login'); };
+  }
+
+  function renderLogin() {
+    app.innerHTML =
+      '<h1>Sign in to Contoso TimeTrack</h1>' +
+      '<p class="muted">Demo site with fictional data. The presenter supplies the demo password.</p>' +
+      '<form id="loginForm" style="max-width:380px" autocomplete="off">' +
+      '<label for="userId">User ID</label><input type="text" id="userId" value="demo.user@contoso.example" autocomplete="off">' +
+      '<label for="password">Password</label><input type="password" id="password" autocomplete="off">' +
+      '<div class="err-text" id="loginError" role="alert"></div>' +
+      '<p><button type="submit" id="signIn">Sign in</button></p></form>';
+    document.getElementById('loginForm').onsubmit = function (e) {
+      e.preventDefault();
+      if (val('password') === PASSWORD) { state.auth = true; state.banner = null; save(); go('/home'); }
+      else { document.getElementById('loginError').textContent = 'Invalid user ID or password.'; }
+    };
+  }
+
+  function renderHome() {
+    app.innerHTML =
+      '<h1>Home</h1><p class="muted">Welcome, Demo User.</p>' +
+      (state.newsDismissed ? '' : '<div class="banner info" id="news"><strong>What\u2019s new in TimeTrack 4.2:</strong> a refreshed Time &amp; Availability workspace. <button class="secondary" id="dismissNews">Dismiss</button></div>') +
+      '<h2>Quick links</h2><p><a href="#/time">Time &amp; Availability</a></p>' +
+      '<h2>Reminders</h2><ul><li>Time entries are due every Friday by 5:00 PM ET.</li><li>Use only approved project and task codes.</li></ul>';
+    var d = document.getElementById('dismissNews');
+    if (d) { d.onclick = function () { state.newsDismissed = true; save(); render(); }; }
+  }
+
+  function renderTime() {
+    var t = state.tab;
+    app.innerHTML =
+      '<h1>Time &amp; Availability</h1>' +
+      '<div class="tabs" role="tablist">' +
+      '<button class="tab ' + (t === 'availability' ? 'active' : '') + '" id="tabAvail" role="tab">AVAILABILITY</button>' +
+      '<button class="tab ' + (t === 'time' ? 'active' : '') + '" id="tabTime" role="tab">TIME</button></div>' +
+      '<div id="tabBody"></div>';
+    document.getElementById('tabAvail').onclick = function () { state.tab = 'availability'; state.banner = null; save(); render(); };
+    document.getElementById('tabTime').onclick = function () { state.tab = 'time'; state.banner = null; save(); render(); };
+    if (t === 'availability') {
+      document.getElementById('tabBody').innerHTML = '<p class="muted">Your availability for the selected week. Select TIME to record hours.</p>';
+    } else {
+      renderTimeBody();
+    }
+  }
+
+  function renderTimeBody() {
+    var from = state.range.from, to = state.range.to;
+    var rows = state.entries.filter(function (e) { return e.date >= from && e.date <= to; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id; });
+    var sub = 0, uns = 0;
+    rows.forEach(function (e) { if (e.status === 'Submitted') { sub += e.hours; } else { uns += e.hours; } });
+    var body = rows.length ? rows.map(function (e) {
+      return '<tr class="' + (e.status === 'Submitted' ? '' : 'unsub') + '"><td>' + esc(e.date) + '</td><td>' + esc(projLabel(e.code)) + '</td><td>' + esc(e.task) +
+        '</td><td class="num">' + fmt(e.hours) + '</td><td>' + esc(e.comment) + '</td><td>' + esc(e.status) + '</td></tr>';
+    }).join('') : '<tr><td colspan="6" class="muted">No entries in this date range.</td></tr>';
+    var n = unsubCount();
+    document.getElementById('tabBody').innerHTML =
+      bannerHtml() +
+      '<div class="row">' +
+      '<div><label for="rangeFrom">From</label><input type="text" id="rangeFrom" value="' + esc(from) + '" placeholder="YYYY-MM-DD" style="width:150px"></div>' +
+      '<div><label for="rangeTo">To</label><input type="text" id="rangeTo" value="' + esc(to) + '" placeholder="YYYY-MM-DD" style="width:150px"></div>' +
+      '<div><button class="secondary" id="applyRange">Apply range</button></div>' +
+      '<div class="grow"><button id="addBtn">Add</button></div></div>' +
+      '<p class="muted">Showing entries from ' + esc(from) + ' to ' + esc(to) + '.</p>' +
+      '<table id="grid"><thead><tr><th>Date</th><th>Project / program</th><th>Task</th><th class="num">Hours</th><th>Comment</th><th>Status</th></tr></thead><tbody>' + body + '</tbody></table>' +
+      '<p><strong>Total hours:</strong> ' + fmt(sub + uns) + ' (submitted ' + fmt(sub) + ', unsubmitted ' + fmt(uns) + ')</p>' +
+      '<p><button id="submitBtn" ' + (n ? '' : 'disabled') + '>Agree &amp; Submit</button> <span class="muted">' + (n ? n + ' unsubmitted ' + (n === 1 ? 'entry' : 'entries') + '.' : 'Nothing to submit.') + '</span></p>';
+    document.getElementById('applyRange').onclick = applyRange;
+    document.getElementById('addBtn').onclick = openFlyout;
+    document.getElementById('submitBtn').onclick = openAttestation;
+  }
+
+  function applyRange() {
+    var f = val('rangeFrom').trim(), t = val('rangeTo').trim();
+    if (!validDate(f) || !validDate(t)) { setBanner('err', 'Enter both dates as YYYY-MM-DD.'); return; }
+    if (f > t) { setBanner('err', 'The From date must be on or before the To date.'); return; }
+    state.range = { from: f, to: t };
+    setBanner('info', 'Date range applied: ' + f + ' to ' + t + '.');
+  }
+
+  function closeFlyout() { var f = document.getElementById('flyout'); if (f) { f.remove(); } }
+
+  function openFlyout() {
+    closeFlyout();
+    var f = document.createElement('div');
+    f.className = 'flyout'; f.id = 'flyout';
+    f.setAttribute('role', 'dialog'); f.setAttribute('aria-label', 'Add time entry');
+    f.innerHTML =
+      '<h2>Add time entry</h2><div class="err-text" id="flyErr" role="alert"></div>' +
+      '<label for="fDate">Date</label><input type="text" id="fDate" placeholder="YYYY-MM-DD" autocomplete="off">' +
+      '<label for="fProject">Project / program</label><select id="fProject"><option value="">Select a project or program</option>' +
+      PROJECTS.map(function (p) { return '<option value="' + esc(p.code) + '">' + esc(p.code + ' \u00b7 ' + p.name) + '</option>'; }).join('') + '</select>' +
+      '<label for="fTask">Task</label><select id="fTask" disabled><option value="">Select a project first</option></select>' +
+      '<label for="fHours">Duration (hours)</label><input type="text" id="fHours" placeholder="For example 1.5" inputmode="decimal" autocomplete="off">' +
+      '<label for="fComment">Comment</label><input type="text" id="fComment" maxlength="200" autocomplete="off">' +
+      '<p style="margin-top:18px"><button id="fAdd">Add to grid</button> <button class="secondary" id="fCancel">Cancel</button></p>';
+    document.body.appendChild(f);
+    document.getElementById('fProject').onchange = function () {
+      var p = findProject(val('fProject')), t = document.getElementById('fTask');
+      if (!p) { t.innerHTML = '<option value="">Select a project first</option>'; t.disabled = true; return; }
+      t.disabled = false;
+      t.innerHTML = '<option value="">Select a task</option>' + p.tasks.map(function (x) { return '<option value="' + esc(x) + '">' + esc(x) + '</option>'; }).join('');
+    };
+    document.getElementById('fCancel').onclick = closeFlyout;
+    document.getElementById('fAdd').onclick = addRow;
+    document.getElementById('fDate').focus();
+  }
+
+  function addRow() {
+    var d = val('fDate').trim(), code = val('fProject'), task = val('fTask'), hs = val('fHours').trim(), c = val('fComment').trim();
+    var err = '';
+    if (!validDate(d)) { err = 'Enter the date as YYYY-MM-DD.'; }
+    else if (d < state.range.from || d > state.range.to) { err = 'The date ' + d + ' is outside the selected date range (' + state.range.from + ' to ' + state.range.to + '). Change the range, then try again.'; }
+    else if (!code) { err = 'Select a project or program.'; }
+    else if (!task) { err = 'Select a task.'; }
+    else if (!/^\d+(\.\d{1,2})?$/.test(hs) || parseFloat(hs) <= 0 || parseFloat(hs) > 24 || Math.abs(parseFloat(hs) * 4 - Math.round(parseFloat(hs) * 4)) > 1e-9) { err = 'Duration must be between 0.25 and 24 hours, in steps of 0.25.'; }
+    else if (state.scenario === 'hard' && INACTIVE[code + '|' + task]) { err = 'Task "' + task + '" is not active for ' + code + '. The entry was rejected.'; }
+    if (err) { document.getElementById('flyErr').textContent = err; return; }
+    var h = parseFloat(hs);
+    state.entries.push({ id: state.nextId++, date: d, code: code, task: task, hours: h, comment: c, status: 'Unsubmitted' });
+    closeFlyout();
+    setBanner('info', 'Row added: ' + d + ', ' + code + ' / ' + task + ', ' + fmt(h) + ' hours.');
+  }
+
+  function openAttestation() {
+    var n = unsubCount();
+    if (!n) { return; }
+    var o = document.createElement('div');
+    o.className = 'overlay'; o.id = 'overlay';
+    o.innerHTML =
+      '<div class="modal" role="dialog" aria-label="Attestation">' +
+      '<h2 style="margin-top:0">Attestation</h2>' +
+      '<p>' + n + ' unsubmitted ' + (n === 1 ? 'entry' : 'entries') + ' will be submitted.</p>' +
+      '<p>I certify that the time recorded in this submission is accurate and reflects the work I performed.</p>' +
+      '<label class="inline" for="certify"><input type="checkbox" id="certify"> I certify that the above statement is true.</label>' +
+      '<p><button id="confirmSubmit" disabled>Confirm and submit</button> <button class="secondary" id="attCancel">Cancel</button></p></div>';
+    document.body.appendChild(o);
+    var chk = document.getElementById('certify'), ok = document.getElementById('confirmSubmit');
+    chk.onchange = function () { ok.disabled = !chk.checked; };
+    document.getElementById('attCancel').onclick = function () { o.remove(); };
+    ok.onclick = function () {
+      var count = 0;
+      state.entries.forEach(function (e) { if (e.status !== 'Submitted') { e.status = 'Submitted'; count++; } });
+      var now = new Date();
+      var stamp = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+      var conf = 'TS-' + stamp + '-' + (1000 + Math.floor(Math.random() * 9000));
+      o.remove();
+      setBanner('ok', 'Submission successful. Confirmation number: ' + conf + '. ' + count + ' ' + (count === 1 ? 'entry' : 'entries') + ' submitted.');
+    };
+  }
+
+  document.getElementById('resetLink').onclick = function (e) {
+    e.preventDefault();
+    try { localStorage.removeItem(KEY); } catch (err) { /* ignore */ }
+    location.hash = '#/login';
+    location.reload();
+  };
+  window.addEventListener('hashchange', render);
+  render();
+})();
+</script>
+</body>
+</html>
